@@ -1,0 +1,17 @@
+<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    @media (prefers-color-scheme: light) {
+      .bg { fill: #1a1a2e; }
+      .fg { fill: white; }
+    }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: white; }
+      .fg { fill: #1a1a2e; }
+    }
+  </style>
+  <rect class="bg" width="180" height="180" rx="37" />
+  <g transform="translate(30, 30) scale(0.67)">
+    <circle class="fg" cx="60" cy="60" r="45" fill="none" stroke="currentColor" stroke-width="8" />
+    <circle class="fg" cx="60" cy="60" r="15" fill="currentColor" />
+  </g>
+</svg>
