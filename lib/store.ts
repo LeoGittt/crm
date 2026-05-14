@@ -2,7 +2,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { Product, Category, Customer, Sale, Employee, TabType, Supplier, Expense, ExpenseRecord } from './types'
+import type { Product, Category, Customer, Sale, Employee, TabType, Supplier, Expense, ExpenseRecord, Invoice } from './types'
 
 interface StoreState {
   // Navigation
@@ -63,6 +63,11 @@ interface StoreState {
   // Expense Records
   expenseRecords: ExpenseRecord[]
   addExpenseRecord: (record: Omit<ExpenseRecord, 'id'>) => void
+
+  // Invoices
+  invoices: Invoice[]
+  addInvoice: (invoice: Omit<Invoice, 'id' | 'invoiceNumber' | 'createdAt' | 'total' | 'tax'>) => void
+  updateInvoiceStatus: (id: string, status: 'paid' | 'pending' | 'cancelled') => void
 }
 
 function generateId(): string {
@@ -332,6 +337,30 @@ export const useStore = create<StoreState>()(
       addExpenseRecord: (record) => set((state) => ({
         expenseRecords: [...state.expenseRecords, { ...record, id: generateId() }]
       })),
+
+      // Invoices
+      invoices: [],
+      addInvoice: (invoice) => set((state) => {
+        const id = generateId()
+        const invoiceNumber = `FAC-${String(state.invoices.length + 1).padStart(4, '0')}`
+        const now = new Date()
+        const tax = invoice.subtotal * 0.09
+        const total = invoice.subtotal + tax
+        return {
+          invoices: [...state.invoices, {
+            ...invoice,
+            id,
+            invoiceNumber,
+            subtotal: invoice.subtotal,
+            tax,
+            total,
+            createdAt: now,
+          }]
+        }
+      }),
+      updateInvoiceStatus: (id, status) => set((state) => ({
+        invoices: state.invoices.map(inv => inv.id === id ? { ...inv, status } : inv)
+      })),
     }),
     {
       name: 'arcoiris-store-v3',
@@ -345,6 +374,7 @@ export const useStore = create<StoreState>()(
         suppliers: state.suppliers,
         expenses: state.expenses,
         expenseRecords: state.expenseRecords,
+        invoices: state.invoices,
       }),
     }
   )

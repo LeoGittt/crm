@@ -13,7 +13,8 @@ import {
   ArrowRightLeft,
   CheckCircle,
   Package,
-  User
+  User,
+  FileText
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,12 +33,13 @@ import { useStore } from '@/lib/store'
 type PaymentMethod = 'cash' | 'card' | 'transfer'
 
 export function POSView() {
-  const { products, customers, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, addSale } = useStore()
+  const { products, customers, cart, addToCart, removeFromCart, updateCartQuantity, clearCart, addSale, addInvoice } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null)
   const [showCheckout, setShowCheckout] = useState(false)
   const [showSuccess, setShowSuccess] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [createInvoice, setCreateInvoice] = useState(true)
 
   const availableProducts = products.filter(p => p.stock > 0)
 
@@ -75,18 +77,32 @@ export function POSView() {
   const handleCheckout = () => {
     if (cartItems.length === 0) return
     
+    const saleItems = cartItems.map(item => ({
+      productId: item.productId,
+      productName: item.product.name,
+      quantity: item.quantity,
+      unitPrice: item.product.salePrice,
+      subtotal: item.subtotal,
+    }))
+    
     addSale({
-      items: cartItems.map(item => ({
-        productId: item.productId,
-        productName: item.product.name,
-        quantity: item.quantity,
-        unitPrice: item.product.salePrice,
-        subtotal: item.subtotal,
-      })),
+      items: saleItems,
       customerId: selectedCustomer || undefined,
       total: cartTotal,
       paymentMethod,
     })
+
+    if (createInvoice) {
+      const customer = selectedCustomer ? customers.find(c => c.id === selectedCustomer) : null
+      addInvoice({
+        customerId: selectedCustomer || undefined,
+        customerName: customer?.name || 'Cliente Mostrador',
+        items: saleItems,
+        subtotal: cartTotal,
+        paymentMethod,
+        status: 'paid',
+      })
+    }
 
     clearCart()
     setSelectedCustomer(null)
@@ -367,6 +383,22 @@ export function POSView() {
                   <span className="text-xs">Transferencia</span>
                 </Button>
               </div>
+            </div>
+
+            {/* Invoice Option */}
+            <div className="flex items-center gap-3 rounded-lg border border-[var(--rainbow-cyan)]/30 bg-[var(--rainbow-cyan)]/5 p-3">
+              <input
+                type="checkbox"
+                id="create-invoice"
+                checked={createInvoice}
+                onChange={(e) => setCreateInvoice(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300"
+              />
+              <label htmlFor="create-invoice" className="flex-1 cursor-pointer">
+                <span className="text-sm font-medium">Generar Factura</span>
+                <span className="text-xs text-muted-foreground ml-2">(IVA 9% incluido)</span>
+              </label>
+              <FileText className="h-5 w-5 text-[var(--rainbow-cyan)]" />
             </div>
 
             <div className="flex gap-2 pt-4">

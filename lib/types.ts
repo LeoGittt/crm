@@ -71,8 +71,10 @@ export interface Employee {
 
 export interface Invoice {
   id: string
+  invoiceNumber: string
   customerId?: string
   customerName: string
+  customerDoc?: string
   items: SaleItem[]
   subtotal: number
   tax: number

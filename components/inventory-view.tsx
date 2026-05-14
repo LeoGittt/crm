@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Plus, 
@@ -11,13 +11,20 @@ import {
   Trash2,
   Upload,
   X,
-  Tag
+  Tag,
+  FileSpreadsheet,
+  Download,
+  UploadCloud,
+  Table2,
+  CheckCircle,
+  AlertCircle
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -36,6 +43,7 @@ import {
 } from '@/components/ui/table'
 import { useStore } from '@/lib/store'
 import type { Product } from '@/lib/types'
+import * as XLSX from 'xlsx'
 
 const garmentTypes = ['Bodys', 'Remeras', 'Pantalones', 'Vestidos', 'Camperas', 'Buzos', 'Conjuntos', 'Medias', 'Zapatillas', 'Sandalias', 'Botines', 'Botas']
 const sizes = ['2', '4', '6', '8', '10', '12', '14', '26', '28', '30', '32', '34']
@@ -96,7 +104,7 @@ export function InventoryView() {
                 Carga Masiva
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-[1400px] w-[95vw] max-h-[90vh] overflow-y-auto">
               <BulkUploadForm onClose={() => setIsBulkDialogOpen(false)} />
             </DialogContent>
           </Dialog>
@@ -445,10 +453,14 @@ function ProductForm({ onClose, product }: ProductFormProps) {
 
 function BulkUploadForm({ onClose }: { onClose: () => void }) {
   const { addProducts } = useStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [importStatus, setImportStatus] = useState<{ success: boolean; count: number; message: string } | null>(null)
+  const [previewData, setPreviewData] = useState<any[]>([])
+  const [activeTab, setActiveTab] = useState<'excel' | 'manual'>('excel')
   const [rows, setRows] = useState([
     { name: 'Remera Lisa Algodón', category: 'Remeras', size: 'M', color: 'Negro', stock: 15, costPrice: 4500, salePrice: 7990 },
-    { name: 'Jean Clásico Recto', category: 'Jeans', size: 'L', color: 'Azul', stock: 10, costPrice: 8000, salePrice: 14990 },
-    { name: 'Campera Impermeable', category: 'Camperas', size: 'XL', color: 'Negro', stock: 5, costPrice: 15000, salePrice: 25990 },
+    { name: 'Jean Clásico Recto', category: 'Pantalones', size: '8', color: 'Azul', stock: 10, costPrice: 6000, salePrice: 10500 },
+    { name: 'Vestido Niña', category: 'Vestidos', size: '6', color: 'Rosa', stock: 8, costPrice: 5500, salePrice: 9500 },
   ])
 
   const addRow = () => {
@@ -463,43 +475,193 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
     setRows(rows.map((row, i) => i === index ? { ...row, [field]: value } : row))
   }
 
-  const handleSubmit = () => {
+  const handleManualSubmit = () => {
     const validRows = rows.filter(r => r.name.trim() !== '')
     if (validRows.length > 0) {
-      addProducts(validRows.map(r => ({ ...r, tags: ['nuevo'] })))
-      onClose()
+      addProducts(validRows.map(r => ({ ...r, tags: ['manual'] })))
+      setImportStatus({ success: true, count: validRows.length, message: 'Productos cargados correctamente' })
+      setTimeout(() => onClose(), 1500)
     }
+  }
+
+  const handleExcelImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result
+        const workbook = XLSX.read(data, { type: 'binary' })
+        const sheetName = workbook.SheetNames[0]
+        const sheet = workbook.Sheets[sheetName]
+        const jsonData = XLSX.utils.sheet_to_json(sheet)
+
+        const mappedProducts = jsonData.map((row: any) => ({
+          name: row.Nombre || row.name || '',
+          category: row.Categoría || row.category || 'Remeras',
+          size: String(row.Talle || row.size || 'M'),
+          color: row.Color || row.color || 'Negro',
+          stock: parseInt(row.Stock || row.stock || 0) || 0,
+          costPrice: parseInt(row['Costo'] || row.costPrice || 0) || 0,
+          salePrice: parseInt(row['Precio'] || row.salePrice || 0) || 0,
+        }))
+
+        const validProducts = mappedProducts.filter((p: any) => p.name.trim() !== '')
+        
+        if (validProducts.length > 0) {
+          setPreviewData(validProducts.slice(0, 5))
+          setActiveTab('manual')
+          setRows(validProducts)
+          setImportStatus({ success: true, count: validProducts.length, message: `Se detectaron ${validProducts.length} productos en el Excel` })
+        } else {
+          setImportStatus({ success: false, count: 0, message: 'No se encontraron productos válidos en el Excel' })
+        }
+      } catch (error) {
+        setImportStatus({ success: false, count: 0, message: 'Error al procesar el archivo. Verifica el formato.' })
+      }
+    }
+    reader.readAsBinaryString(file)
+    event.target.value = ''
+  }
+
+  const downloadTemplate = () => {
+    const template = [
+      { Nombre: 'Remera Lisa', Categoría: 'Remeras', Talle: 'M', Color: 'Negro', Stock: 10, Costo: 4500, Precio: 7990 },
+      { Nombre: 'Jean Niño', Categoría: 'Pantalones', Talle: '8', Color: 'Azul', Stock: 15, Costo: 6000, Precio: 10500 },
+      { Nombre: 'Vestido Niña', Categoría: 'Vestidos', Talle: '6', Color: 'Rosa', Stock: 8, Costo: 5500, Precio: 9500 },
+    ]
+    const ws = XLSX.utils.json_to_sheet(template)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Plantilla')
+    XLSX.writeFile(wb, 'plantilla-productos-arcoiris.xlsx')
+  }
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
   }
 
   return (
     <>
-      <DialogHeader>
-        <DialogTitle>Carga Masiva de Productos</DialogTitle>
+      <DialogHeader className="pb-4 border-b">
+        <DialogTitle className="flex items-center gap-2">
+          <UploadCloud className="h-5 w-5 text-[var(--rainbow-cyan)]" />
+          Carga Masiva de Productos
+        </DialogTitle>
         <DialogDescription>
-          Agrega múltiples productos a la vez. Los SKUs se generan automáticamente.
+          Importa productos desde Excel o agrégalos manualmente
         </DialogDescription>
       </DialogHeader>
-      <div className="max-h-96 space-y-3 overflow-y-auto">
-        {rows.map((row, index) => (
-          <div key={index} className="flex items-center gap-2 rounded-lg border border-border p-3">
-            <div className="grid flex-1 gap-2 sm:grid-cols-4">
-              <Input
-                placeholder="Nombre"
-                value={row.name}
-                onChange={(e) => updateRow(index, 'name', e.target.value)}
-              />
-              <select
-                className="rounded-md border border-input bg-input px-2 py-1 text-sm"
-                value={row.category}
-                onChange={(e) => updateRow(index, 'category', e.target.value)}
-              >
-                {garmentTypes.map((type) => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-              <div className="flex gap-1">
+
+      {/* Status Message */}
+      {importStatus && (
+        <div className={`flex items-center gap-3 p-3 rounded-lg mb-4 ${importStatus.success ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-600'}`}>
+          {importStatus.success ? <CheckCircle className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+          <span className="text-sm font-medium">{importStatus.message}</span>
+        </div>
+      )}
+
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger value="excel" className="gap-2">
+            <FileSpreadsheet className="h-4 w-4" />
+            Importar Excel
+          </TabsTrigger>
+          <TabsTrigger value="manual" className="gap-2">
+            <Table2 className="h-4 w-4" />
+            Ingreso Manual
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="excel" className="space-y-4">
+          {/* Excel Import Section */}
+          <div className="border-2 border-dashed border-border rounded-xl p-8 text-center hover:border-[var(--rainbow-cyan)]/50 transition-colors">
+            <div className="flex flex-col items-center gap-4">
+              <div className="h-16 w-16 rounded-full bg-[var(--rainbow-cyan)]/10 flex items-center justify-center">
+                <FileSpreadsheet className="h-8 w-8 text-[var(--rainbow-cyan)]" />
+              </div>
+              <div className="space-y-1">
+                <p className="font-medium">Arrastra tu archivo Excel aquí</p>
+                <p className="text-sm text-muted-foreground">o haz clic para seleccionar</p>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleExcelImport}
+                  className="hidden"
+                  id="excel-upload"
+                />
+                <Button variant="outline" onClick={() => document.getElementById('excel-upload')?.click()}>
+                  Seleccionar Archivo
+                </Button>
+                <Button variant="ghost" onClick={downloadTemplate} className="gap-2">
+                  <Download className="h-4 w-4" />
+                  Plantilla
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Format Info */}
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <p className="text-sm font-medium mb-2">Formatos aceptados:</p>
+            <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+              <Badge variant="secondary">.xlsx</Badge>
+              <Badge variant="secondary">.xls</Badge>
+              <Badge variant="secondary">.csv</Badge>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">
+              Columnas: Nombre, Categoría, Talle, Color, Stock, Costo, Precio
+            </p>
+          </div>
+        </TabsContent>
+
+        <TabsContent value="manual" className="space-y-4">
+          {/* Manual Entry */}
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">
+              {rows.filter(r => r.name.trim() !== '').length} productos listos para cargar
+            </p>
+            <Button variant="outline" size="sm" onClick={addRow} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Agregar Fila
+            </Button>
+          </div>
+
+          {/* Table Header */}
+          <div className="grid gap-1 text-xs font-medium text-muted-foreground grid-cols-[1.5fr_110px_55px_75px_50px_70px_28px] px-1">
+            <span>Nombre</span>
+            <span>Categoría</span>
+            <span>Talle</span>
+            <span>Color</span>
+            <span className="text-center">Stock</span>
+            <span>Precio</span>
+            <span></span>
+          </div>
+
+          {/* Table Body */}
+          <div className="max-h-64 space-y-1 overflow-y-auto pr-1">
+            {rows.map((row, index) => (
+              <div key={index} className="flex items-center gap-1 rounded-lg border border-border p-1.5 hover:border-[var(--rainbow-cyan)]/30 transition-colors">
+                <Input
+                  placeholder="Nombre del producto"
+                  className="flex-1 h-7 text-sm"
+                  value={row.name}
+                  onChange={(e) => updateRow(index, 'name', e.target.value)}
+                />
                 <select
-                  className="w-16 rounded-md border border-input bg-input px-2 py-1 text-sm"
+                  className="w-24 h-7 rounded-md border border-input bg-input px-1.5 text-xs"
+                  value={row.category}
+                  onChange={(e) => updateRow(index, 'category', e.target.value)}
+                >
+                  {garmentTypes.map((type) => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+                <select
+                  className="w-12 h-7 rounded-md border border-input bg-input px-1 text-xs"
                   value={row.size}
                   onChange={(e) => updateRow(index, 'size', e.target.value)}
                 >
@@ -508,7 +670,7 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
                   ))}
                 </select>
                 <select
-                  className="flex-1 rounded-md border border-input bg-input px-2 py-1 text-sm"
+                  className="w-16 h-7 rounded-md border border-input bg-input px-1 text-xs"
                   value={row.color}
                   onChange={(e) => updateRow(index, 'color', e.target.value)}
                 >
@@ -516,45 +678,71 @@ function BulkUploadForm({ onClose }: { onClose: () => void }) {
                     <option key={color} value={color}>{color}</option>
                   ))}
                 </select>
-              </div>
-              <div className="flex gap-1">
                 <Input
                   type="number"
-                  placeholder="Stock"
-                  className="w-16"
+                  className="w-12 h-7 text-center text-sm"
                   value={row.stock}
                   onChange={(e) => updateRow(index, 'stock', parseInt(e.target.value) || 0)}
                 />
                 <Input
                   type="number"
-                  placeholder="Precio"
+                  className="w-16 h-7 text-sm"
                   value={row.salePrice}
                   onChange={(e) => updateRow(index, 'salePrice', parseInt(e.target.value) || 0)}
                 />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                  onClick={() => removeRow(index)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+
+          {/* Preview if data from excel */}
+          {previewData.length > 0 && (
+            <div className="bg-[var(--rainbow-cyan)]/10 rounded-lg p-3">
+              <p className="text-xs font-medium mb-2 text-[var(--rainbow-cyan)]">
+                Preview (primeros 5 de {rows.length}):
+              </p>
+              <div className="space-y-1">
+                {previewData.map((p, i) => (
+                  <div key={i} className="flex justify-between text-xs">
+                    <span>{p.name}</span>
+                    <span className="text-muted-foreground">{p.category} - {p.size} - Stock: {p.stock} - {formatCurrency(p.salePrice)}</span>
+                  </div>
+                ))}
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => removeRow(index)}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center justify-between pt-4">
-        <Button type="button" variant="outline" size="sm" onClick={addRow} className="gap-2">
-          <Plus className="h-4 w-4" />
-          Agregar Fila
-        </Button>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Footer */}
+      <div className="flex items-center justify-between pt-4 border-t border-border mt-4">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          {activeTab === 'manual' && rows.filter(r => r.name.trim() !== '').length > 0 && (
+            <>
+              <CheckCircle className="h-4 w-4 text-green-500" />
+              <span>{rows.filter(r => r.name.trim() !== '').length} productos</span>
+            </>
+          )}
+        </div>
         <div className="flex gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
-          <Button onClick={handleSubmit}>
-            Cargar {rows.filter(r => r.name.trim() !== '').length} Productos
+          <Button 
+            onClick={handleManualSubmit}
+            disabled={activeTab === 'manual' && rows.filter(r => r.name.trim() !== '').length === 0}
+            className="gap-2"
+          >
+            <UploadCloud className="h-4 w-4" />
+            Cargar Productos
           </Button>
         </div>
       </div>

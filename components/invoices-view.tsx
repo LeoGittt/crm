@@ -9,10 +9,17 @@ import {
   Filter,
   Calendar,
   DollarSign,
-  Users
+  Users,
+  Printer,
+  CheckCircle,
+  XCircle,
+  Clock,
+  Plus,
+  X
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -30,6 +37,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useStore } from '@/lib/store'
 import type { Invoice } from '@/lib/types'
 
 const statusColors = {
@@ -44,77 +52,28 @@ const statusLabels = {
   cancelled: 'Cancelada',
 }
 
-const initialInvoices: Invoice[] = [
-  {
-    id: 'INV-001',
-    customerId: '1',
-    customerName: 'Laura Pérez',
-    items: [
-      { productId: '1', productName: 'Vestido Floral Talla M', quantity: 1, unitPrice: 85000, subtotal: 85000 },
-      { productId: '2', productName: 'Bolso de Mano', quantity: 1, unitPrice: 45000, subtotal: 45000 },
-    ],
-    subtotal: 120000,
-    tax: 10800,
-    total: 130800,
-    paymentMethod: 'cash',
-    status: 'paid',
-    createdAt: new Date('2026-05-10'),
-  },
-  {
-    id: 'INV-002',
-    customerId: '2',
-    customerName: 'Carmen Rodríguez',
-    items: [
-      { productId: '3', productName: 'Camisa Casual Azul', quantity: 2, unitPrice: 55000, subtotal: 110000 },
-    ],
-    subtotal: 110000,
-    tax: 9900,
-    total: 119900,
-    paymentMethod: 'card',
-    status: 'paid',
-    createdAt: new Date('2026-05-09'),
-  },
-  {
-    id: 'INV-003',
-    customerId: '3',
-    customerName: 'Andrea López',
-    items: [
-      { productId: '4', productName: 'Falda Plisada', quantity: 1, unitPrice: 65000, subtotal: 65000 },
-      { productId: '5', productName: 'Blusa Seda', quantity: 1, unitPrice: 72000, subtotal: 72000 },
-      { productId: '6', productName: 'Zapatos Casual', quantity: 1, unitPrice: 95000, subtotal: 95000 },
-    ],
-    subtotal: 232000,
-    tax: 20880,
-    total: 252880,
-    paymentMethod: 'transfer',
-    status: 'pending',
-    createdAt: new Date('2026-05-08'),
-  },
-  {
-    id: 'INV-004',
-    customerId: '1',
-    customerName: 'Laura Pérez',
-    items: [
-      { productId: '7', productName: 'Chaqueta Denim', quantity: 1, unitPrice: 120000, subtotal: 120000 },
-    ],
-    subtotal: 120000,
-    tax: 10800,
-    total: 130800,
-    paymentMethod: 'cash',
-    status: 'cancelled',
-    createdAt: new Date('2026-05-07'),
-  },
-]
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
+}
+
+const formatDate = (date: Date) => {
+  return new Intl.DateTimeFormat('es-AR', { 
+    day: 'numeric', 
+    month: 'short', 
+    year: 'numeric' 
+  }).format(new Date(date))
+}
 
 export function InvoicesView() {
-  const [invoices] = useState<Invoice[]>(initialInvoices)
+  const { invoices, updateInvoiceStatus, customers, sales } = useStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null)
+  const [showNewInvoiceDialog, setShowNewInvoiceDialog] = useState(false)
 
   const filteredInvoices = invoices.filter((inv) => {
     const matchesSearch = 
-      inv.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
       inv.customerName.toLowerCase().includes(searchTerm.toLowerCase())
     const matchesStatus = statusFilter === 'all' || inv.status === statusFilter
     return matchesSearch && matchesStatus
@@ -131,11 +90,21 @@ export function InvoicesView() {
   const paidCount = invoices.filter(i => i.status === 'paid').length
   const pendingCount = invoices.filter(i => i.status === 'pending').length
 
+  const handleStatusChange = (invoiceId: string, newStatus: 'paid' | 'pending' | 'cancelled') => {
+    updateInvoiceStatus(invoiceId, newStatus)
+  }
+
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Facturación</h1>
-        <p className="text-muted-foreground">Historial de facturas y ventas</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Facturación</h1>
+          <p className="text-muted-foreground">Historial de facturas y ventas</p>
+        </div>
+        <Button onClick={() => setShowNewInvoiceDialog(true)} className="gap-2">
+          <FileText className="h-4 w-4" />
+          Nueva Factura
+        </Button>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -146,7 +115,7 @@ export function InvoicesView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${totalRevenue.toLocaleString('es-CO')}
+              {formatCurrency(totalRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Ingresos pagados
@@ -160,7 +129,7 @@ export function InvoicesView() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              ${pendingRevenue.toLocaleString('es-CO')}
+              {formatCurrency(pendingRevenue)}
             </div>
             <p className="text-xs text-muted-foreground">
               Por cobrar
@@ -235,11 +204,11 @@ export function InvoicesView() {
             <TableBody>
               {filteredInvoices.map((invoice) => (
                 <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.id}</TableCell>
+                  <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                   <TableCell>{invoice.customerName}</TableCell>
-                  <TableCell>{invoice.createdAt.toLocaleDateString('es-CO')}</TableCell>
+                  <TableCell>{formatDate(invoice.createdAt)}</TableCell>
                   <TableCell className="capitalize">{invoice.paymentMethod}</TableCell>
-                  <TableCell>${invoice.total.toLocaleString('es-CO')}</TableCell>
+                  <TableCell>{formatCurrency(invoice.total)}</TableCell>
                   <TableCell>
                     <Badge className={statusColors[invoice.status]}>
                       {statusLabels[invoice.status]}
@@ -269,9 +238,9 @@ export function InvoicesView() {
       <Dialog open={!!selectedInvoice} onOpenChange={() => setSelectedInvoice(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Factura {selectedInvoice?.id}</DialogTitle>
+            <DialogTitle>Factura {selectedInvoice?.invoiceNumber}</DialogTitle>
             <DialogDescription>
-              {selectedInvoice?.createdAt.toLocaleDateString('es-CO')}
+              {selectedInvoice && formatDate(selectedInvoice.createdAt)}
             </DialogDescription>
           </DialogHeader>
           {selectedInvoice && (
@@ -302,8 +271,8 @@ export function InvoicesView() {
                     <TableRow key={idx}>
                       <TableCell>{item.productName}</TableCell>
                       <TableCell className="text-center">{item.quantity}</TableCell>
-                      <TableCell className="text-right">${item.unitPrice.toLocaleString('es-CO')}</TableCell>
-                      <TableCell className="text-right">${item.subtotal.toLocaleString('es-CO')}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.unitPrice)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(item.subtotal)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -312,21 +281,194 @@ export function InvoicesView() {
               <div className="space-y-2 border-t pt-4">
                 <div className="flex justify-between text-sm">
                   <span>Subtotal</span>
-                  <span>${selectedInvoice.subtotal.toLocaleString('es-CO')}</span>
+                  <span>{formatCurrency(selectedInvoice.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span>IVA (9%)</span>
-                  <span>${selectedInvoice.tax.toLocaleString('es-CO')}</span>
+                  <span>{formatCurrency(selectedInvoice.tax)}</span>
                 </div>
                 <div className="flex justify-between text-lg font-bold border-t pt-2">
                   <span>Total</span>
-                  <span>${selectedInvoice.total.toLocaleString('es-CO')}</span>
+                  <span>{formatCurrency(selectedInvoice.total)}</span>
                 </div>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
+
+      {/* New Invoice Dialog */}
+      <Dialog open={showNewInvoiceDialog} onOpenChange={setShowNewInvoiceDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Nueva Factura Manual</DialogTitle>
+            <DialogDescription>
+              Crea una factura sin necesariamente haber hecho una venta
+            </DialogDescription>
+          </DialogHeader>
+          <NewInvoiceForm 
+            customers={customers} 
+            onClose={() => setShowNewInvoiceDialog(false)}
+          />
+        </DialogContent>
+      </Dialog>
+    </div>
+  )
+}
+
+interface NewInvoiceFormProps {
+  customers: any[]
+  onClose: () => void
+}
+
+function NewInvoiceForm({ customers, onClose }: NewInvoiceFormProps) {
+  const { addInvoice } = useStore()
+  const [form, setForm] = useState({
+    customerId: '',
+    customerName: '',
+    paymentMethod: 'cash' as 'cash' | 'card' | 'transfer',
+  })
+  const [items, setItems] = useState([
+    { productName: '', quantity: 1, unitPrice: 0 }
+  ])
+
+  const addItem = () => {
+    setItems([...items, { productName: '', quantity: 1, unitPrice: 0 }])
+  }
+
+  const removeItem = (index: number) => {
+    setItems(items.filter((_, i) => i !== index))
+  }
+
+  const updateItem = (index: number, field: string, value: string | number) => {
+    setItems(items.map((item, i) => i === index ? { ...item, [field]: value } : item))
+  }
+
+  const handleSubmit = () => {
+    const validItems = items.filter(i => i.productName.trim() !== '')
+    if (validItems.length === 0) return
+
+    const subtotal = validItems.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0)
+    
+    addInvoice({
+      customerId: form.customerId || undefined,
+      customerName: form.customerName || 'Cliente Mostrador',
+      items: validItems.map(item => ({
+        productId: '',
+        productName: item.productName,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        subtotal: item.quantity * item.unitPrice,
+      })),
+      subtotal,
+      paymentMethod: form.paymentMethod,
+      status: 'pending',
+    })
+    onClose()
+  }
+
+  const subtotal = items.reduce((acc, item) => acc + (item.quantity * item.unitPrice), 0)
+  const tax = subtotal * 0.09
+  const total = subtotal + tax
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label>Cliente (opcional)</Label>
+          <select
+            className="w-full rounded-md border border-input bg-input px-3 py-2"
+            value={form.customerId}
+            onChange={(e) => {
+              const customer = customers.find(c => c.id === e.target.value)
+              setForm({ 
+                ...form, 
+                customerId: e.target.value,
+                customerName: customer?.name || ''
+              })
+            }}
+          >
+            <option value="">Cliente Mostrador</option>
+            {customers.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label>Método de pago</Label>
+          <select
+            className="w-full rounded-md border border-input bg-input px-3 py-2"
+            value={form.paymentMethod}
+            onChange={(e) => setForm({ ...form, paymentMethod: e.target.value as any })}
+          >
+            <option value="cash">Efectivo</option>
+            <option value="card">Tarjeta</option>
+            <option value="transfer">Transferencia</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex justify-between items-center">
+          <Label>Items</Label>
+          <Button type="button" variant="outline" size="sm" onClick={addItem} className="gap-1">
+            <Plus className="h-3 w-3" /> Agregar
+          </Button>
+        </div>
+        {items.map((item, index) => (
+          <div key={index} className="flex gap-2 items-end">
+            <Input
+              placeholder="Producto"
+              className="flex-1"
+              value={item.productName}
+              onChange={(e) => updateItem(index, 'productName', e.target.value)}
+            />
+            <Input
+              type="number"
+              placeholder="Cant"
+              className="w-16"
+              value={item.quantity}
+              onChange={(e) => updateItem(index, 'quantity', parseInt(e.target.value) || 0)}
+            />
+            <Input
+              type="number"
+              placeholder="Precio"
+              className="w-24"
+              value={item.unitPrice}
+              onChange={(e) => updateItem(index, 'unitPrice', parseInt(e.target.value) || 0)}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-destructive"
+              onClick={() => removeItem(index)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        ))}
+      </div>
+
+      <div className="rounded-lg bg-secondary/50 p-4 space-y-2">
+        <div className="flex justify-between text-sm">
+          <span>Subtotal</span>
+          <span>{formatCurrency(subtotal)}</span>
+        </div>
+        <div className="flex justify-between text-sm">
+          <span>IVA (9%)</span>
+          <span>{formatCurrency(tax)}</span>
+        </div>
+        <div className="flex justify-between font-bold border-t pt-2">
+          <span>Total</span>
+          <span>{formatCurrency(total)}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleSubmit}>Crear Factura</Button>
+      </div>
     </div>
   )
 }
