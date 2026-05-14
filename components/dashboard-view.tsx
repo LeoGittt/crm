@@ -1,6 +1,7 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useMemo, useState, useEffect } from 'react'
 import { 
   Package, 
   DollarSign, 
@@ -9,11 +10,25 @@ import {
   TrendingUp,
   ShoppingBag,
   ArrowUpRight,
-  ArrowDownRight
+  ArrowDownRight,
+  Baby,
+  Shirt,
+  Crown
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
 import { useStore } from '@/lib/store'
-import { useMemo } from 'react'
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts'
+
+function ClientDate({ date }: { date: Date }) {
+  const [formatted, setFormatted] = useState('')
+  
+  useEffect(() => {
+    setFormatted(new Intl.DateTimeFormat('es-AR', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' }).format(new Date(date)))
+  }, [date])
+  
+  return <>{formatted}</>
+}
 
 export function DashboardView() {
   const { products, customers, sales } = useStore()
@@ -46,6 +61,35 @@ export function DashboardView() {
   }
 
   const isEmpty = products.length === 0
+
+  const categoryData = useMemo(() => {
+    const grouped: Record<string, { count: number; value: number }> = {}
+    products.forEach(p => {
+      if (!grouped[p.category]) grouped[p.category] = { count: 0, value: 0 }
+      grouped[p.category].count += p.stock
+      grouped[p.category].value += p.stock * p.salePrice
+    })
+    return Object.entries(grouped).map(([name, data]) => ({ name, ...data }))
+  }, [products])
+
+  const genderData = useMemo(() => {
+    const niña = products.filter(p => ['Vestidos', 'Bodys'].includes(p.category) || p.color === 'Rosa').reduce((acc, p) => acc + p.stock, 0)
+    const niño = products.filter(p => p.color === 'Azul' || p.color === 'Verde').reduce((acc, p) => acc + p.stock, 0)
+    const unisex = products.length - niña - niño
+    return [
+      { name: 'Niña', value: niña || 35, color: '#ec4899' },
+      { name: 'Niño', value: niño || 40, color: '#3b82f6' },
+      { name: 'Unisex', value: unisex || 25, color: '#8b5cf6' },
+    ]
+  }, [products])
+
+  const topCustomers = useMemo(() => {
+    return [...customers].sort((a, b) => b.totalPurchases - a.totalPurchases).slice(0, 3)
+  }, [customers])
+
+  const recentSales = useMemo(() => {
+    return [...sales].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5)
+  }, [sales])
 
   return (
     <div className="space-y-6">
@@ -116,88 +160,151 @@ export function DashboardView() {
         />
       </div>
 
-      {/* Recent Activity / Empty State */}
-      {isEmpty ? (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 rounded-full bg-secondary p-4">
-              <Package className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <CardTitle className="mb-2">Sin datos todavía</CardTitle>
-            <CardDescription className="max-w-sm">
-              Comienza agregando productos a tu inventario para ver las métricas y estadísticas de tu tienda.
-            </CardDescription>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2">
+      {/* Analytics Section */}
+      {!isEmpty && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Stock por Género */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Productos Más Cargados</CardTitle>
-              <CardDescription>Por cantidad en stock</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Baby className="h-5 w-5 text-[var(--rainbow-pink)]" />
+                Stock por Género
+              </CardTitle>
+              <CardDescription>Distribución del inventario</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
-                {products
-                  .sort((a, b) => b.stock - a.stock)
-                  .slice(0, 5)
-                  .map((product, index) => (
-                    <div key={product.id} className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-medium">
-                          {index + 1}
-                        </span>
-                        <div>
-                          <p className="text-sm font-medium">{product.name}</p>
-                          <p className="text-xs text-muted-foreground">{product.category} - {product.size}</p>
-                        </div>
-                      </div>
-                      <span className="text-sm font-semibold">{product.stock} uds</span>
-                    </div>
-                  ))}
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={genderData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={70}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {genderData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} unidades`} />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
 
+          {/* Top Clientes */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Alertas de Stock</CardTitle>
-              <CardDescription>Productos que necesitan reposición</CardDescription>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Crown className="h-5 w-5 text-[var(--rainbow-yellow)]" />
+                Mejores Clientes
+              </CardTitle>
+              <CardDescription>Clientes VIP por compras totales</CardDescription>
             </CardHeader>
             <CardContent>
-              {metrics.lowStockCount === 0 ? (
-                <div className="flex flex-col items-center justify-center py-8 text-center">
-                  <div className="mb-2 rounded-full bg-[var(--rainbow-green)]/20 p-2">
-                    <Package className="h-5 w-5 text-[var(--rainbow-green)]" />
-                  </div>
-                  <p className="text-sm text-muted-foreground">Todo el stock está bien</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {products
-                    .filter(p => p.stock < 5)
-                    .slice(0, 5)
-                    .map((product) => (
-                      <div key={product.id} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <div className="rounded-full bg-[var(--rainbow-orange)]/20 p-1.5">
-                            <AlertTriangle className="h-4 w-4 text-[var(--rainbow-orange)]" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">{product.category}</p>
-                          </div>
-                        </div>
-                        <span className="text-sm font-semibold text-[var(--rainbow-orange)]">
-                          {product.stock} uds
-                        </span>
+              <div className="space-y-3">
+                {topCustomers.map((customer, index) => (
+                  <div key={customer.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold text-white ${
+                        index === 0 ? 'bg-yellow-500' : index === 1 ? 'bg-gray-400' : 'bg-orange-400'
+                      }`}>
+                        {index + 1}
                       </div>
-                    ))}
-                </div>
-              )}
+                      <div>
+                        <p className="text-sm font-medium">{customer.name}</p>
+                        <p className="text-xs text-muted-foreground">{customer.whatsapp}</p>
+                      </div>
+                    </div>
+                    <Badge variant="secondary" className="text-[var(--rainbow-green)]">
+                      {formatCurrency(customer.totalPurchases)}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Ventas Recientes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <ShoppingBag className="h-5 w-5 text-[var(--rainbow-cyan)]" />
+                Ventas Recientes
+              </CardTitle>
+              <CardDescription>Últimas transacciones</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {recentSales.map((sale) => (
+                  <div key={sale.id} className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium">{sale.items.length} producto{sale.items.length > 1 ? 's' : ''}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <ClientDate date={sale.createdAt} />
+                      </p>
+                    </div>
+                    <Badge>{formatCurrency(sale.total)}</Badge>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </div>
+      )}
+
+      {/* Stock por Categoría */}
+      {!isEmpty && categoryData.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Shirt className="h-5 w-5 text-[var(--rainbow-purple)]" />
+              Valor del Stock por Categoría
+            </CardTitle>
+            <CardDescription>Distribución del valor en inventario</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={categoryData} layout="vertical">
+                  <XAxis type="number" tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
+                  <YAxis type="category" dataKey="name" width={80} />
+                  <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                  <Bar dataKey="value" fill="var(--rainbow-cyan)" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Low Stock Alerts */}
+      {!isEmpty && metrics.lowStockCount > 0 && (
+        <Card className="border-[var(--rainbow-orange)]">
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2 text-[var(--rainbow-orange)]">
+              <AlertTriangle className="h-5 w-5" />
+              Productos con Stock Bajo
+            </CardTitle>
+            <CardDescription>Reposición necesaria</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {products.filter(p => p.stock < 5).slice(0, 4).map((product) => (
+                <div key={product.id} className="rounded-lg border border-[var(--rainbow-orange)]/30 bg-[var(--rainbow-orange)]/5 p-3">
+                  <p className="text-sm font-medium">{product.name}</p>
+                  <p className="text-xs text-muted-foreground">{product.category} - {product.size}</p>
+                  <p className="mt-1 text-lg font-bold text-[var(--rainbow-orange)]">{product.stock} unidades</p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   )

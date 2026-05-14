@@ -9,6 +9,7 @@ export interface Product {
   costPrice: number
   salePrice: number
   tags: string[]
+  supplierId?: string
   createdAt: Date
   updatedAt: Date
 }
@@ -81,4 +82,34 @@ export interface Invoice {
   createdAt: Date
 }
 
-export type TabType = 'dashboard' | 'inventory' | 'customers' | 'pos' | 'employees' | 'invoices' | 'whatsapp' | 'settings'
+export interface Supplier {
+  id: string
+  name: string
+  contact: string
+  phone: string
+  email?: string
+  address?: string
+  notes?: string
+  createdAt: Date
+}
+
+export interface Expense {
+  id: string
+  name: string
+  amount: number
+  frequency: 'monthly' | 'weekly' | 'yearly'
+  category: 'alquiler' | 'servicios' | 'sueldos' | 'insumos' | 'marketing' | 'otros'
+  isActive: boolean
+  createdAt: Date
+}
+
+export interface ExpenseRecord {
+  id: string
+  expenseId: string
+  expenseName: string
+  amount: number
+  date: Date
+  notes?: string
+}
+
+export type TabType = 'dashboard' | 'inventory' | 'customers' | 'pos' | 'employees' | 'invoices' | 'suppliers' | 'expenses' | 'reports' | 'whatsapp' | 'settings'

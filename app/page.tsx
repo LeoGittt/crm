@@ -10,6 +10,9 @@ import { CustomersView } from '@/components/customers-view'
 import { POSView } from '@/components/pos-view'
 import { EmployeesView } from '@/components/employees-view'
 import { InvoicesView } from '@/components/invoices-view'
+import { SuppliersView } from '@/components/suppliers-view'
+import { ExpensesView } from '@/components/expenses-view'
+import { ReportsView } from '@/components/reports-view'
 import { WhatsAppView } from '@/components/whatsapp-view'
 import { SettingsView } from '@/components/settings-view'
 
@@ -39,6 +42,9 @@ export default function Home() {
               {activeTab === 'pos' && <POSView />}
               {activeTab === 'employees' && <EmployeesView />}
               {activeTab === 'invoices' && <InvoicesView />}
+              {activeTab === 'suppliers' && <SuppliersView />}
+              {activeTab === 'expenses' && <ExpensesView />}
+              {activeTab === 'reports' && <ReportsView />}
               {activeTab === 'whatsapp' && <WhatsAppView />}
               {activeTab === 'settings' && <SettingsView />}
             </motion.div>

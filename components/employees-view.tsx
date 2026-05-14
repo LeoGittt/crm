@@ -18,6 +18,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+
+const formatDate = (date: Date | string | undefined): string => {
+  if (!date) return 'Sin fecha'
+  const d = typeof date === 'string' ? new Date(date) : date
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
 import {
   Dialog,
   DialogContent,
@@ -355,7 +361,7 @@ export function EmployeesView() {
                       ${employee.salary.toLocaleString('es-CO')}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      Ingresó: {employee.hireDate.toLocaleDateString('es-CO')}
+                      Ingresó: {formatDate(employee.hireDate)}
                     </div>
                   </div>
                   <DropdownMenu>

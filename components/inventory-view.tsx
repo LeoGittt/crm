@@ -37,14 +37,15 @@ import {
 import { useStore } from '@/lib/store'
 import type { Product } from '@/lib/types'
 
-const garmentTypes = ['Remeras', 'Jeans', 'Camperas', 'Pantalones', 'Vestidos', 'Faldas', 'Buzos', 'Camisas']
-const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
-const colors = ['Negro', 'Blanco', 'Azul', 'Rojo', 'Verde', 'Gris', 'Beige', 'Rosa', 'Marrón', 'Amarillo']
+const garmentTypes = ['Bodys', 'Remeras', 'Pantalones', 'Vestidos', 'Camperas', 'Buzos', 'Conjuntos', 'Medias', 'Zapatillas', 'Sandalias', 'Botines', 'Botas']
+const sizes = ['2', '4', '6', '8', '10', '12', '14', '26', '28', '30', '32', '34']
+const colors = ['Rosa', 'Azul', 'Verde', 'Blanco', 'Beige', 'Gris', 'Negro', 'Amarillo', 'Marrón']
 
 export function InventoryView() {
   const { products, addProduct, addProducts, updateProduct, deleteProduct, categories } = useStore()
   const [searchQuery, setSearchQuery] = useState('')
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null)
+  const [sizeFilter, setSizeFilter] = useState<string | null>(null)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [isBulkDialogOpen, setIsBulkDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
@@ -53,11 +54,28 @@ export function InventoryView() {
     const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          product.sku.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCategory = !categoryFilter || product.category === categoryFilter
-    return matchesSearch && matchesCategory
+    const matchesSize = !sizeFilter || product.size === sizeFilter
+    return matchesSearch && matchesCategory && matchesSize
   })
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value)
+  }
+
+  const getColorHex = (color: string) => {
+    const colorMap: Record<string, string> = {
+      Rosa: '#ec4899',
+      Azul: '#3b82f6',
+      Verde: '#22c55e',
+      Blanco: '#f8fafc',
+      Beige: '#d4c4a8',
+      Gris: '#6b7280',
+      Negro: '#1f2937',
+      Amarillo: '#eab308',
+      Rojo: '#ef4444',
+      Marrón: '#92400e',
+    }
+    return colorMap[color] || '#ccc'
   }
 
   const garmentCategories = categories.filter(c => c.type === 'garment')
@@ -100,17 +118,20 @@ export function InventoryView() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col gap-4 sm:flex-row">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nombre o SKU..."
-            className="pl-9"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o SKU..."
+              className="pl-9"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Ropa:</span>
           <Button
             variant={categoryFilter === null ? 'default' : 'outline'}
             size="sm"
@@ -118,7 +139,7 @@ export function InventoryView() {
           >
             Todos
           </Button>
-          {garmentTypes.slice(0, 5).map((cat) => (
+          {garmentTypes.slice(0, 8).map((cat) => (
             <Button
               key={cat}
               variant={categoryFilter === cat ? 'default' : 'outline'}
@@ -126,6 +147,39 @@ export function InventoryView() {
               onClick={() => setCategoryFilter(cat)}
             >
               {cat}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Calzado:</span>
+          {garmentTypes.slice(8).map((cat) => (
+            <Button
+              key={cat}
+              variant={categoryFilter === cat ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCategoryFilter(cat)}
+            >
+              {cat}
+            </Button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm text-muted-foreground">Talle:</span>
+          <Button
+            variant={sizeFilter === null ? 'secondary' : 'default'}
+            size="sm"
+            onClick={() => setSizeFilter(null)}
+          >
+            Todos
+          </Button>
+          {sizes.map((size) => (
+            <Button
+              key={size}
+              variant={sizeFilter === size ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setSizeFilter(size)}
+            >
+              {size}
             </Button>
           ))}
         </div>
@@ -191,7 +245,15 @@ export function InventoryView() {
                         <Badge variant="secondary">{product.category}</Badge>
                       </TableCell>
                       <TableCell>{product.size}</TableCell>
-                      <TableCell>{product.color}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="h-4 w-4 rounded-full border border-border" 
+                            style={{ backgroundColor: getColorHex(product.color) }}
+                          />
+                          {product.color}
+                        </div>
+                      </TableCell>
                       <TableCell className="text-right">
                         <span className={product.stock < 5 ? 'text-[var(--rainbow-orange)] font-semibold' : ''}>
                           {product.stock}

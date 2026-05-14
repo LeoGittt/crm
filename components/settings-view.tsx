@@ -18,7 +18,7 @@ import { useStore } from '@/lib/store'
 
 export function SettingsView() {
   const { categories, addCategory, deleteCategory, setFirstTime, products, customers, sales } = useStore()
-  const [newCategory, setNewCategory] = useState({ name: '', type: 'garment' as const })
+  const [newCategory, setNewCategory] = useState<{ name: string; type: 'season' | 'gender' | 'garment' }>({ name: '', type: 'garment' })
 
   const handleAddCategory = () => {
     if (newCategory.name.trim()) {

@@ -8,6 +8,9 @@ import {
   ShoppingCart,
   UserCog,
   FileText,
+  Truck,
+  Receipt,
+  BarChart3,
   MessageCircle,
   Settings,
   Rainbow
@@ -16,13 +19,16 @@ import { cn } from '@/lib/utils'
 import { useStore } from '@/lib/store'
 import type { TabType } from '@/lib/types'
 
-const navItems: { id: TabType; label: string; icon: React.ElementType }[] = [
+const navItems: { id: TabType; label: string; icon: React.ElementType; section?: string; highlight?: boolean }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'inventory', label: 'Inventario', icon: Package },
   { id: 'customers', label: 'Clientes', icon: Users },
   { id: 'pos', label: 'Ventas', icon: ShoppingCart },
   { id: 'employees', label: 'Empleados', icon: UserCog },
   { id: 'invoices', label: 'Facturas', icon: FileText },
+  { id: 'suppliers', label: 'Proveedores', icon: Truck },
+  { id: 'expenses', label: 'Gastos', icon: Receipt },
+  { id: 'reports', label: 'Reportes', icon: BarChart3 },
   { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle, highlight: true },
   { id: 'settings', label: 'Ajustes', icon: Settings },
 ]
